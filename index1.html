@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GRIT Interview Scheduling Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#f4f7fa;--card:#fff;--ink:#0f2a43;--mut:#5b6f82;--line:#d8e1e9;--acc:#f2a900;--accink:#3a2a00;--ok:#1f8a5b;--okbg:#e3f4ec;--bad:#b83a2e;--badbg:#fbe9e7;--wait:#8a5a00;--waitbg:#fff3d6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b1a29;--card:#12273b;--ink:#e8f1f8;--mut:#9fb3c6;--line:#254158;--okbg:#103a2b;--badbg:#401c18;--waitbg:#3d3010;--wait:#f2c761;--ok:#58d19b;--bad:#ff8f84}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "DM Sans",system-ui,sans-serif}
+h1,h2{font-family:Fraunces,Georgia,serif;margin:0}h2{font-size:22px}h3{margin:0 0 6px;font-size:15px}
+.wrap{max-width:860px;margin:0 auto;padding:16px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 18px}
+.tabs button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--accink);font-weight:700}
+.btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}.btn.bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn:focus-visible,.tabs button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:13px;font-weight:700}
+.p-ok{background:var(--okbg);color:var(--ok)}.p-bad{background:var(--badbg);color:var(--bad)}.p-wait{background:var(--waitbg);color:var(--wait)}.p-n{background:var(--bg);color:var(--mut);border:1px solid var(--line)}
+.mut{color:var(--mut)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.demo{background:var(--waitbg);border:1px dashed var(--wait);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px}
+.demo b{margin-right:6px}.demo button{margin:3px 4px 3px 0;padding:5px 10px;font-size:13px}
+.pass{border:2px dashed var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:1fr auto;gap:12px;background:var(--card)}
+.pass .big{font-family:Fraunces,Georgia,serif;font-size:26px}
+.badge{font-size:34px;line-height:1}.locked{opacity:.45;filter:grayscale(1)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+.msg{border-left:4px solid var(--acc);padding-left:12px}
+.num{font-family:Fraunces,Georgia,serif;font-size:30px}
+select,input{font:inherit;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;max-width:90%;display:none}
+</style></head><body><div class="wrap">
+<h1>GRIT Interview Scheduling</h1>
+<div class="mut">Prototype for the AI Novice Badge interview. All data is sample data kept in the browser tab.</div>
+<div class="tabs" id="tabs"></div><div id="app"></div></div><div class="toast" id="toast"></div>
+<script>
+var BADGE="AI Product Mastery · Novice";
+var S={tab:"student",view:"home",stu:"eligible",slot:null,retake:null,
+slots:[{id:1,day:"Thu, 13 Nov",time:"4:00 PM",who:"Ananya R.",st:"open"},{id:2,day:"Fri, 14 Nov",time:"11:00 AM",who:"Kiran M.",st:"open"},{id:3,day:"Fri, 14 Nov",time:"5:30 PM",who:"Ananya R.",st:"open"},{id:4,day:"Sat, 15 Nov",time:"10:00 AM",who:"Kiran M.",st:"open"}],
+others:[["Meghana P.","Booked"],["Sanjay K.","Booked"],["Divya S.","Not booked"],["Arjun T.","Not booked"],["Nikhil V.","Passed"]]};
+var LABEL={eligible:["Ready to book","p-wait"],booked:["Interview booked","p-wait"],rebook:["Needs rebooking","p-bad"],passed:["Passed","p-ok"],retake:["Retake later","p-wait"],failed:["Not cleared","p-bad"]};
+function $(id){return document.getElementById(id)}
+function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(window._t);window._t=setTimeout(function(){e.style.display="none"},3200)}
+function slotOf(){return S.slots.filter(function(s){return s.id===S.slot})[0]}
+function setStu(s){S.stu=s;if(s==="eligible"||s==="passed"||s==="failed"||s==="retake"){if(s==="eligible")S.slot=null}render()}
+function book(id){var s=S.slots.filter(function(x){return x.id===id})[0];if(s.st!=="open"){toast("Slot just taken. Pick another slot.");return}s.st="booked";S.slot=id;S.stu="booked";S.view="home";render();toast("Interview booked for "+s.day+", "+s.time+" IST.")}
+function cancel(){var s=slotOf();if(s)s.st="open";S.slot=null;S.stu="eligible";render();toast("Booking cancelled. You can pick a new slot.")}
+function interviewerCancel(){var s=slotOf();if(s)s.st="blocked";S.slot=null;S.stu="rebook";render()}
+function outcome(r){S.stu=r==="pass"?"passed":r==="fail"?"failed":"retake";if(r==="retake")S.retake="21 Nov";render();toast("Outcome saved: "+r+". Student dashboard updated.")}
+function addSlot(){var d=$("nd").value,t=$("nt").value;S.slots.push({id:Date.now(),day:d,time:t,who:"You",st:"open"});render()}
+var TABS=[["student","Student"],["interviewer","Interviewer"],["team","Interview team"],["msgs","Student messages"]];
+function render(){
+$("tabs").innerHTML=TABS.map(function(t){return '<button class="'+(S.tab===t[0]?"on":"")+'" onclick="S.tab=\''+t[0]+'\';S.view=\'home\';render()">'+t[1]+'</button>'}).join("");
+$("app").innerHTML=S.tab==="student"?student():S.tab==="interviewer"?interviewer():S.tab==="team"?team():msgs()}
+function demo(){var o=[["eligible","Before booking"],["booked","Booked"],["rebook","Interviewer cancelled"],["passed","After: Pass"],["retake","After: Retake later"],["failed","After: Not cleared"]];
+return '<div class="demo"><b>Before and after preview</b>'+o.map(function(x){return '<button class="btn" onclick="demoSet(\''+x[0]+'\')">'+x[1]+(S.stu===x[0]?" ✓":"")+'</button>'}).join("")+'</div>'}
+function demoSet(s){if(s==="booked"&&!S.slot){var f=S.slots.filter(function(x){return x.st==="open"})[0];if(f){f.st="booked";S.slot=f.id}}if(s==="retake")S.retake="21 Nov";S.stu=s;S.view="home";render()}
+function student(){
+if(S.view==="book")return bookView();
+var st=S.stu,L=LABEL[st],sl=slotOf(),pass=st==="passed";
+var miles=pass?'<div class="num">1,540</div><div class="mut">Miles · 300 added after your interview</div>':'<div class="num">1,240</div><div class="mut">Miles · 300 more on hold until you clear the interview</div>';
+var lb=pass?'<span class="pill p-ok">Qualiflyer</span><div class="mut">You now rank on the Qualiflyer leaderboard.</div>':'<span class="pill p-n">Pre-Qualiflyer</span><div class="mut">Clear this interview to move to Qualiflyers.</div>';
+var main="";
+if(st==="eligible")main='<h2>You’re ready for your interview</h2><p>You’ve cleared all skills for this badge. Pick a time with an interviewer.</p><button class="btn pri" onclick="S.view=\'book\';render()">Book interview slot</button>';
+if(st==="booked"&&sl)main='<div class="pass"><div><div class="mut">Level Clearance Interview</div><div class="big">'+sl.day+', '+sl.time+' IST</div><div>Interviewer: '+sl.who+'</div><div class="mut">Meeting link appears here 10 minutes before the start.</div></div><div class="badge">🎫</div></div><div class="row" style="margin-top:12px"><button class="btn" onclick="S.view=\'book\';cancelKeep()">Reschedule</button><button class="btn bad" onclick="cancel()">Cancel booking</button></div><p class="mut">Free changes until 24 hours before the slot.</p>';
+if(st==="rebook")main='<h2>Your interviewer had to cancel</h2><p>This isn’t your fault and nothing is lost. Your new booking gets priority.</p><button class="btn pri" onclick="S.view=\'book\';render()">Pick a new slot</button>';
+if(pass)main='<h2>You passed the interview 🎉</h2><p>Your <b>'+BADGE+'</b> badge is unlocked and your Miles are updated.</p>';
+if(st==="retake")main='<h2>Retake later</h2><p>Your interviewer wants a second look. You can book again after <b>'+S.retake+'</b>. Your skill progress is safe.</p><button class="btn" disabled>Booking opens '+S.retake+'</button>';
+if(st==="failed")main='<h2>Not cleared this time</h2><p>You can book again after a 7 day gap. Your skill progress is safe.</p><button class="btn" disabled>Booking opens in 7 days</button>';
+return demo()+'<div class="card"><div class="row"><h3>Interview status</h3><span class="pill '+L[1]+'">'+L[0]+'</span></div>'+main+'</div><div class="grid"><div class="card"><h3>Track badge</h3><div class="badge '+(pass?"":"locked")+'">🏅</div><div>'+BADGE+'</div><div class="mut">'+(pass?"Unlocked":"Locked until you pass the interview")+'</div></div><div class="card"><h3>Miles</h3>'+miles+'</div><div class="card"><h3>Leaderboard</h3>'+lb+'</div></div>'}
+function cancelKeep(){var s=slotOf();if(s)s.st="open";S.slot=null;S.stu="eligible";render()}
+function bookView(){var o=S.slots.filter(function(s){return s.st==="open"});
+return '<button class="btn" onclick="S.view=\'home\';render()">Back</button><div class="card" style="margin-top:12px"><h2>Choose a time</h2><div class="mut">Times in IST. 30 minute interview.</div>'+(o.length?o.map(function(s){return '<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><b>'+s.day+', '+s.time+'</b><div class="mut">with '+s.who+'</div></div><button class="btn pri" onclick="book('+s.id+')">Book this slot</button></div>'}).join(""):'<p>No open slots right now. New slots are added by interviewers, check back soon.</p>')+'</div>'}
+function interviewer(){var b=S.slots.filter(function(s){return s.st==="booked"}),sl=slotOf();
+var sched=b.length?b.map(function(s){return '<div class="card"><div class="row"><div><b>'+s.day+', '+s.time+'</b><div class="mut">Student: Teja V. · '+BADGE+'</div></div><span class="pill p-wait">Upcoming</span></div><div class="row" style="margin-top:10px"><button class="btn ok" onclick="outcome(\'pass\')">Pass</button><button class="btn bad" onclick="outcome(\'fail\')">Fail</button><button class="btn" onclick="outcome(\'retake\')">Retake later</button><button class="btn" onclick="interviewerCancel()">Cancel slot</button></div></div>'}).join(""):'<div class="card mut">No booked interviews. Book one from the Student tab to see outcome recording.</div>';
+var done=["passed","failed","retake"].indexOf(S.stu)>-1?'<div class="card"><b>Teja V.</b> · outcome recorded: <span class="pill '+LABEL[S.stu][1]+'">'+LABEL[S.stu][0]+'</span> <span class="mut">(editable for 24h with a reason)</span></div>':"";
+return '<h2>Today’s schedule</h2><p class="mut">Booked interviews with outcome recording.</p>'+sched+done+'<h2 style="margin-top:20px">My availability</h2><div class="card"><div class="row"><select id="nd"><option>Mon, 17 Nov</option><option>Tue, 18 Nov</option><option>Wed, 19 Nov</option></select><select id="nt"><option>10:00 AM</option><option>2:00 PM</option><option>6:00 PM</option></select><button class="btn pri" onclick="addSlot()">Add slot</button></div></div><div class="scroll"><table><tr><th>Day</th><th>Time</th><th>Status</th></tr>'+S.slots.map(function(s){return '<tr><td>'+s.day+'</td><td>'+s.time+'</td><td>'+(s.st==="open"?"Open":s.st==="booked"?"Booked":"Blocked")+'</td></tr>'}).join("")+'</table></div><p class="mut">A booked slot can’t be removed. Cancel the booking first so the student is moved to rebooking.</p>'}
+function team(){var rows=S.others.slice();var me=S.stu==="eligible"||S.stu==="rebook"?"Not booked":S.stu==="booked"?"Booked":LABEL[S.stu][0];rows.unshift(["Teja V.",me]);
+var bk=rows.filter(function(r){return r[1]==="Booked"}).length,nb=rows.filter(function(r){return r[1]==="Not booked"}).length,op=S.slots.filter(function(s){return s.st==="open"}).length;
+return '<h2>Eligible students</h2><div class="grid"><div class="card"><div class="num">'+bk+'</div>booked</div><div class="card"><div class="num">'+nb+'</div>not booked yet</div><div class="card"><div class="num">'+op+'</div>open slots</div></div>'+(nb>op?'<div class="demo">More students are waiting than open slots. Ask interviewers to add availability.</div>':"")+'<div class="scroll"><table><tr><th>Student</th><th>Interview status</th></tr>'+rows.map(function(r){var c=r[1]==="Booked"||r[1]==="Passed"?"p-ok":r[1]==="Not booked"?"p-bad":"p-wait";return '<tr><td>'+r[0]+'</td><td><span class="pill '+c+'">'+r[1]+'</span></td></tr>'}).join("")+'</table></div>'}
+function msgs(){var m=[["1. Booking confirmed","Interview booked: Fri, 14 Nov, 5:30 PM IST with Ananya R. Your meeting link will appear on your dashboard 10 minutes before the start. You can change or cancel for free until 24 hours before."],["2. Interviewer cancelled","Your interviewer can’t make the Fri, 14 Nov slot. This isn’t your fault and nothing is lost. Pick a new time now. Your booking gets priority."],["3. Result: passed","You passed! Your AI Product Mastery Novice badge is unlocked, and your 300 held Miles have been added to your total."]];
+return '<h2>The 3 most important student messages</h2>'+m.map(function(x){return '<div class="card msg"><h3>'+x[0]+'</h3><div>'+x[1]+'</div></div>'}).join("")+'<div class="card msg"><h3>Also shown on screen: other results</h3><div><b>Retake later:</b> Your interviewer wants a second look. You can book again after 21 Nov. Your skill progress is safe.<br><br><b>Not cleared:</b> You can book again after a 7 day gap. Your skill progress is safe.</div></div>'}
+render();
+</script></body></html>
